@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>EarthCache Answer Checker</title>
+  <style>
+    :root {
+      --bg-color: #ffffff;
+      --text-color: #222222;
+      --textarea-bg: #ffffff;
+      --pre-bg: #eeeeee;
+      --button-bg: #1976d2;
+      --button-text: white;
+    }
+
+    body.dark {
+      --bg-color: #121212;
+      --text-color: #e0e0e0;
+      --textarea-bg: #1e1e1e;
+      --pre-bg: #2a2a2a;
+      --button-bg: #388e3c;
+      --button-text: white;
+    }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      font-family: Arial, sans-serif;
+      max-width: 700px;
+      margin: 2em auto;
+      padding: 0 1em;
+      line-height: 1.5;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+
+    textarea {
+      width: 100%;
+      height: 250px;
+      font-family: monospace;
+      font-size: 1rem;
+      padding: 0.5em;
+      background-color: var(--textarea-bg);
+      color: var(--text-color);
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      resize: vertical;
+    }
+
+    pre {
+      background-color: var(--pre-bg);
+      padding: 1em;
+      white-space: pre-wrap;
+      min-height: 200px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+      font-size: 1rem;
+    }
+
+    button, select {
+      margin-right: 10px;
+      padding: 0.5em 1.2em;
+      font-size: 1rem;
+      border: none;
+      border-radius: 4px;
+      background-color: var(--button-bg);
+      color: var(--button-text);
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    select {
+      background-color: var(--button-bg);
+    }
+
+    button:hover, select:hover {
+      opacity: 0.9;
+      outline: none;
+    }
+
+    @media (max-width: 480px) {
+      textarea {
+        height: 180px;
+        font-size: 1.1rem;
+      }
+
+      pre {
+        font-size: 1.1rem;
+        min-height: 180px;
+      }
+
+      button, select {
+        width: 48%;
+        margin-bottom: 0.8em;
+        font-size: 1.1rem;
+        padding: 0.8em;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<h2 id="title">Tower Bridge Solver</h2>
+
+<select id="locationSelect" onchange="setLocation(this.value)">
+  <option value="tower">Tower Bridge</option>
+  <option value="castle">Berkhamsted Castle</option>
+</select>
+
+<br><br>
+<textarea id="answersInput" placeholder="Paste your answers here..."></textarea>
+<br><br>
+
+<button onclick="checkCopyDownload()">Check + Copy + Download</button>
+<button onclick="toggleDarkMode()">Toggle Dark Mode</button>
+
+<h3>Results:</h3>
+<pre id="results"></pre>
+
+<script>
+let currentLocation = 'tower';
+
+const questionSets = {
+  tower: {
+    title: "Tower Bridge Solver",
+    requiresOneForGreat: [0, 1, 2, 4],
+    questions: [
+      { q: "Stone colour?", keywords: ["cream", "white", "light", "grey", "beige"] },
+      { q: "Surface feel?", keywords: ["smooth", "rough", "grainy", "coarse"] },
+      { q: "Fossil types?", keywords: ["shell", "bivalve", "coral", "fossil", "hole", "line"] },
+      { q: "Fossil clues about environment?", keywords: ["marine", "sea", "ocean", "shallow", "warm", "water", "surface"] },
+      { q: "Signs of wear?", keywords: ["blackening", "crack", "pit", "worn"] },
+      { q: "Causes of weathering?", keywords: ["pollution", "acid rain", "human", "erosion", "weathering", "rain"] },
+      { q: "Why Portland Stone for Tower Bridge?", keywords: ["durable", "strong", "local", "appearance", "aesthetic", "maintenance", "weathering"] }
+    ]
+  },
+  castle: {
+    title: "Berkhamsted Castle Solver",
+    requiresOneForGreat: [0, 1],
+    questions: [
+      { q: "What type of stone is most visible?", keywords: ["flint", "chalk", "sandstone", "clunch"] },
+      { q: "Where does the spring emerge?", keywords: ["ditch", "moat", "bank", "wall", "spring"] },
+      { q: "Is the stone natural or transported?", keywords: ["local", "natural", "transported", "imported"] },
+      { q: "How does flint form?", keywords: ["silica", "chalk", "sediment", "marine", "biochemical"] },
+      { q: "Why is the spring important?", keywords: ["defence", "water", "moat", "supply"] }
+    ]
+  }
+};
+
+function setLocation(loc) {
+  currentLocation = loc;
+  document.getElementById("title").textContent = questionSets[loc].title;
+}
+
+function checkAnswers() {
+  const input = document.getElementById("answersInput").value;
+  const hasPhoto = /\bphoto\b/i.test(input);
+  const answerRegex = /^\s*(\d+)\.\s*([\s\S]*?)(?=^\s*\d+\.\s*|$)/gm;
+
+  const { questions, requiresOneForGreat } = questionSets[currentLocation];
+
+  let matches, answers = [];
+  while ((matches = answerRegex.exec(input)) !== null) {
+    answers[parseInt(matches[1], 10) - 1] = matches[2].trim().toLowerCase();
+  }
+
+  let output = "";
+  let summary = { Great: 0, Good: 0, Wrong: 0 };
+
+  if (answers.length < questions.length) {
+    output += `Only ${answers.filter(a => a).length} answers found (need ${questions.length}).\n\n`;
+  }
+
+  questions.forEach((item, i) => {
+    output += `Q${i + 1}: ${item.q}\n`;
+    const answer = answers[i];
+
+    if (answer) {
+      const found = item.keywords.filter(k => new RegExp(`\\b${k}s?\\b`, 'i').test(answer));
+      const count = found.length;
+
+      let rating = "Wrong";
+      if (requiresOneForGreat.includes(i)) {
+        if (count >= 1) rating = "Great";
+      } else {
+        if (count >= 2) rating = "Great";
+        else if (count === 1) rating = "Good";
+      }
+
+      summary[rating]++;
+      output += count > 0
+        ? `Mentioned: ${found.join(", ")}.\n`
+        : `Missing keywords: ${item.keywords.join(", ")}.\n`;
+      output += `Rating: ${rating}\n\n`;
+    } else {
+      output += "No answer.\nRating: Wrong\n\n";
+      summary.Wrong++;
+    }
+  });
+
+  const summaryLine = `Summary: ${summary.Great} Great, ${summary.Good} Good, ${summary.Wrong} Wrong\n\n`;
+  output = summaryLine + output;
+
+  if (!hasPhoto && currentLocation === "tower") {
+    output += "Please include a photo of the bridge with your public log if you haven't already. Thanks!";
+  }
+
+  document.getElementById("results").textContent = output;
+}
+
+function copyResults() {
+  const results = document.getElementById("results").textContent;
+  if (!results) {
+    alert("Run check first.");
+    return;
+  }
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(results)
+      .then(() => alert("Copied!"))
+      .catch(() => fallbackCopy(results));
+  } else {
+    fallbackCopy(results);
+  }
+}
+
+function fallbackCopy(text) {
+  const temp = document.createElement("textarea");
+  temp.value = text;
+  temp.setAttribute("readonly", "");
+  temp.style.position = "absolute";
+  temp.style.left = "-9999px";
+  document.body.appendChild(temp);
+  temp.select();
+  try {
+    const success = document.execCommand("copy");
+    alert(success ? "Copied!" : "Copy failed.");
+  } catch (err) {
+    alert("Copy failed.");
+  }
+  document.body.removeChild(temp);
+}
+
+function downloadLog() {
+  const answers = document.getElementById("answersInput").value.trim();
+  const results = document.getElementById("results").textContent.trim();
+
+  if (!results) {
+    alert("Please run 'Check' first to generate results.");
+    return;
+  }
+
+  const locationName = questionSets[currentLocation].title.replace(" Solver", "");
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const filename = `EarthCacheLog_${locationName.replace(/\s+/g, '')}_${timestamp}.txt`;
+
+  const content =
+`EarthCache Log - ${locationName}
+Date: ${new Date().toLocaleString()}
+
+--- Answers ---
+${answers}
+
+--- Results ---
+${results}
+`;
+
+  const blob = new Blob([content], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function checkCopyDownload() {
+  checkAnswers();
+  copyResults();
+  setTimeout(downloadLog, 300);
+}
+
+function toggleDarkMode() {
+  document.body.classList.toggle("dark");
+  localStorage.setItem("darkMode", document.body.classList.contains("dark") ? "true" : "false");
+}
+
+window.onload = () => {
+  if (localStorage.getItem("darkMode") === "true") {
+    document.body.classList.add("dark");
+  }
+
+  setLocation(currentLocation);
+};
+</script>
+
+</body>
+</html>
